@@ -2,22 +2,24 @@
 #include <vector>
 #include <fstream>
 #include <cmath>
+#include <limits>
 
 template <typename T>
 class RankPairingHeap{
+public:
     struct Node{
         T val;
         int rank;
         Node* next;
-        Node* lChild,*rChild;
+        Node* lChild,*rChild,*parent;
         Node(){rank = 0;
             next = this;
-            lChild = rChild = NULL;}
+            lChild = rChild = parent = NULL;}
         Node(T val){
             this->val = val;
             rank = 0;
             next = this;
-            lChild = rChild = NULL;
+            lChild = rChild = parent = NULL;
         }
         void print(std::ostream& out){
             if(lChild != NULL)
@@ -27,7 +29,8 @@ class RankPairingHeap{
                 rChild->print(out);
         }
     };
-    Node *firstNode,*lastNode;
+private:
+    Node *firstNode;
     int unsigned n;
 public:
     int unsigned size(){return n;}
@@ -36,61 +39,59 @@ public:
     }
     void nullify(){
         n = 0;
-        firstNode = lastNode = NULL;
+        firstNode = NULL;
     }
     bool empty(){return firstNode == NULL || n == 0;}
-    bool make_heap(T val){
+    Node* make_heap(T val){
         if( firstNode != NULL)
-            return false;
+            return NULL;
         firstNode = new Node(val);
-        lastNode = firstNode;
         n = 1;
-        return true;
+        return firstNode;
     }
     RankPairingHeap move(RankPairingHeap& other){
         firstNode = other.firstNode;
-        lastNode = other.lastNode;
         n = other.size();
         other.nullify();
         return *this;
     }
-    static RankPairingHeap meld(RankPairingHeap& h1, RankPairingHeap& h2){
-        RankPairingHeap result;
-        if(h1.empty()) return result.move(h2);
-        if(h2.empty()) return result.move(h1);
-        if(h1.firstNode->val > h2.firstNode->val)
-            return meld(h2,h1);
-        if(h1.firstNode == h1.lastNode)
-            h1.lastNode = h2.lastNode;
-        h2.lastNode->next = h1.firstNode->next;
-        h1.firstNode->next = h2.firstNode;
-        h1.n += h2.size();
-        h2.nullify();
-        return result.move(h1);
+    RankPairingHeap meld(RankPairingHeap& other){
+        if(empty()){
+            move(other);
+            return *this;
+        }
+        if(other.empty())
+            return *this;
+
+        /// catenation of 2 circular simply linked list
+        Node * h1Next = firstNode->next;
+        firstNode->next = other.firstNode->next;
+        other.firstNode->next = h1Next;
+
+        if(firstNode->val > other.firstNode->val)
+            firstNode = other.firstNode;
+
+        n += other.size();
+        other.nullify();
+        return *this;
     }
-    void push(T val){
+    Node* push(T val){
         RankPairingHeap heap2;
-        heap2.make_heap(val);
-        *this = meld(*this,heap2);
+        Node* result = heap2.make_heap(val);
+        meld(heap2);
+        return result;
     }
     void push(Node *node){
+        node->parent = NULL;
         if(empty()){
-            firstNode = lastNode = node;
+            firstNode  = node;
             firstNode->next = firstNode;
             return;
         }
-
-        if(node->val < firstNode->val){
-            node->next = firstNode;
-            lastNode->next = node;
+        node->next = firstNode->next;
+        firstNode ->next = node;
+        if(node->val < firstNode->val)
             firstNode = node;
-        }
-        else{
-            node->next = firstNode->next;
-            if(firstNode->next == firstNode)
-                lastNode = node;
-            firstNode->next = node;
-        }
     }
     void push(std::vector<Node*> v){
         for(int unsigned i = 0; i < v.size(); i ++)
@@ -106,36 +107,41 @@ public:
             throw std::runtime_error("Heap is empty!");
         return firstNode->val;
     }
-    void delete_min(){
+    bool edgeCase_delete_min(){
+        ///edge cases
         if(empty())
             throw std::runtime_error("Heap is empty!");
         if(size() == 1){
             delete firstNode;
             nullify();
-            return;
+            return true;
         }
-
-
+        return false;
+    }
+    void delete_min(){
+        /// handles edge cases.
+        if(edgeCase_delete_min())
+            return;
+        /// adds right spine of half trees to the list of roots.
         addRightSpine(firstNode->lChild);
 
-        lastNode->next = firstNode->next;
-        delete firstNode;
-        n--;
-
-        firstNode = lastNode->next;
-
-        int maxRank = log2(n) + 1;
+        /// link half trees with buckets for same rank.
+        int maxRank = log2(n) + 3;
         Node** Buckets = new Node*[maxRank];
+
         for(int i = 0; i < maxRank; i++)
             Buckets[i] = NULL;
 
-        std::vector<Node*> result;
-
-        Buckets[firstNode->rank] = firstNode;
+        std::vector<Node*> result; /// will contain list of half trees after one-pass joins.
 
         Node* nextNode = firstNode->next;
+        Buckets[nextNode->rank] = nextNode;
+
+        nextNode = nextNode->next;
         while(nextNode != firstNode){
             Node* currentNode = nextNode;
+            nextNode = nextNode->next;
+            /// combine half trees of same rank.
             if(Buckets[currentNode->rank] != NULL){
                 Node * sameRankNode = Buckets[currentNode->rank];
                 Buckets[currentNode->rank] = NULL;
@@ -143,6 +149,10 @@ public:
                 if(sameRankNode->val < currentNode->val)
                     std::swap(sameRankNode,currentNode);
                 sameRankNode->rChild = currentNode->lChild;
+                if(currentNode->lChild != NULL)
+                    currentNode->lChild->parent = sameRankNode;
+                sameRankNode->parent = currentNode;
+                sameRankNode->next = NULL;
                 currentNode->lChild = sameRankNode;
 
                 currentNode->rank++;
@@ -152,7 +162,6 @@ public:
             else{
                 Buckets[currentNode->rank] = currentNode;
             }
-            nextNode = nextNode->next;
         }
 
 
@@ -161,28 +170,89 @@ public:
                 result.push_back(Buckets[i]);
 
         delete[] Buckets;
+        delete firstNode;
 
-        firstNode = lastNode = NULL;
+        firstNode = NULL;
+        n--;
+
         push(result);
     }
     void addRightSpine(Node* &node){
         if(node == NULL) return;
+        node->parent = NULL;
         Node* rChild = node->rChild;
         node->rChild = NULL;
 
         node->next = firstNode->next;
-        if(firstNode->next == firstNode)
-            lastNode = node;
         firstNode->next = node;
 
         node = rChild;
         addRightSpine(node);
     }
 
+    void decreaseKey(Node* node, T newVal){
+
+        node->val = newVal;
+        Node* parent = node->parent;
+
+        if(parent == NULL){
+            if(node->val < firstNode->val)
+                firstNode = node;
+            return;
+        }
+
+        push(node);
+        if(parent->lChild == node)
+            parent->lChild = node->rChild;
+        else if(parent->rChild == node)
+            parent->rChild = node->rChild;
+        else throw std::runtime_error("parent wrongly formed!");
+
+        if(node->rChild != NULL)
+            node->rChild->parent = parent;
+        node->rChild = NULL;
+        node->parent = NULL;
+
+        recalculateRank(parent);
+    }
+    int getRank(Node* node){
+        if(node == NULL)
+            return -1;
+        return node->rank;
+    }
+    void recalculateRank(Node* &node){
+        if(node->parent == NULL){
+            node->rank = getRank(node->lChild) + 1;
+            return;
+        }
+        int newRank = -1;
+        int lRank,rRank;
+
+        lRank = getRank(node->lChild);
+        rRank = getRank(node->rChild);
+
+        if(lRank == rRank)
+            newRank = lRank + 1;
+        else
+            newRank = std::max(lRank,rRank);
+
+        if(newRank >= node->rank)
+            return;
+
+        node->rank = newRank;
+        node = node->parent;
+        recalculateRank(node);
+    }
+    void deleteNode(Node* node){
+        decreaseKey(node,std::numeric_limits<T>::min());
+        delete_min();
+    }
 
     void afis(std::ostream& out){
+        out << "Rank-pairing heap looks like this:";
         if(empty()){
             out << "Empty heap!\n";
+            return;
         }
 
         Node* node = firstNode;
@@ -218,13 +288,43 @@ void runInfoarenaMergeHeap(){
         else if(type == 3){
             int nr1, nr2;
             fin >> nr1 >> nr2;
-            heaps[nr1] = RankPairingHeap<int>::meld(heaps[nr1],heaps[nr2]);
+            heaps[nr1].meld(heaps[nr2]);
         }
+
     }
-    /// gets 100 points. nice
+    /// gets 100 points. Surprisingly didn't have implementation problems.
+}
+void runInfoarenaHeapuri(){
+    int n;
+    std::ifstream fin("heapuri.in");
+    std::ofstream fout("heapuri.out");
+    fin >> n;
+    RankPairingHeap<int> rpHeap;
+    typedef RankPairingHeap<int>::Node* rpNode;
+    std::vector< rpNode> ptrs;
+    while(n--){
+        int type;
+        fin >> type;
+        if(type == 1){
+            int x;
+            fin >> x;
+            rpNode newPtr = rpHeap.push(x);
+            ptrs.push_back(newPtr);
+        }
+        else if(type == 2){
+            ///rpHeap.afis(std::cout);
+            int nr;
+            fin >> nr;
+            rpHeap.deleteNode(ptrs[nr - 1]);
+        }
+        else if(type == 3){
+            fout << rpHeap.find_Min() << '\n';
+        }
+        /// 100p after a 2 hours of debugging
+    }
 }
 int main()
-{
+{/*
     RankPairingHeap<int> myHeap;
 
     static const int arr[] = {1, 10, 2, 3, 4};
@@ -233,5 +333,6 @@ int main()
 
     myHeap.push(vec);
     myHeap.delete_min();
-    myHeap.afis(std::cout);
+    myHeap.afis(std::cout);*/
+    runInfoarenaMergeHeap();
 }
