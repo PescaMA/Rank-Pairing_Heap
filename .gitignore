@@ -1,3 +1,6 @@
+## .gitignore for C++ projects
+# Based on https://github.com/github/gitignore/blob/4488915eec0b3a45b5c63ead28f286819c0917de/C%2B%2B.gitignore
+
 # Prerequisites
 *.d
 
@@ -30,3 +33,17 @@
 *.exe
 *.out
 *.app
+
+## .gitignore for CodeBlocks-specific files
+# Based on https://github.com/toptal/gitignore/blob/a9ef55cf80e21102ca5a50e61d912954b58c39be/templates/CodeBlocks.gitignore
+
+# specific to CodeBlocks IDE
+*.layout
+*.depend
+# generated directories
+bin/
+obj/
+
+#specific for this project:
+.idea/
+tests/tests.in
