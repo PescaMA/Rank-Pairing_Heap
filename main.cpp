@@ -21,12 +21,13 @@ public:
             next = this;
             lChild = rChild = parent = NULL;
         }
-        void print(std::ostream& out){
+        void getChildren(std::vector<Node*>& result){
+            /// Root, left, right (preorder) traversal
+            result.push_back(this);
             if(lChild != NULL)
-                lChild->print(out);
-            out << val << ' ';
+                lChild->getChildren(result);
             if(rChild != NULL)
-                rChild->print(out);
+                rChild->getChildren(result);
         }
     };
 private:
@@ -49,13 +50,13 @@ public:
         n = 1;
         return firstNode;
     }
-    RankPairingHeap move(RankPairingHeap& other){
+    RankPairingHeap& move(RankPairingHeap& other){
         firstNode = other.firstNode;
         n = other.size();
         other.nullify();
         return *this;
     }
-    RankPairingHeap meld(RankPairingHeap& other){
+    RankPairingHeap& meld(RankPairingHeap& other){
         if(empty()){
             move(other);
             return *this;
@@ -258,11 +259,30 @@ public:
         Node* node = firstNode;
         do{
             out << "BINARY TREE rooted at " << node->val << ": ";
-            node->print(out);
+            std::vector<Node*> result;
+            node->getChildren(result);
+
+            for(unsigned i = 0; i< result.size(); i++)
+                out << result[i]->val << ' ';
             out << "\n";
             node = node->next;
         }
         while(node != firstNode);
+    }
+    ~RankPairingHeap(){
+        Node* node = firstNode;
+
+        do{
+            if(node == NULL) return;
+            std::vector<Node*> result;
+            node->getChildren(result);
+
+            node = node->next;
+            for(unsigned i = 0; i< result.size(); i++)
+                delete result[i];
+        }
+        while(node != firstNode);
+        nullify();
     }
 };
 namespace Infoarena{
@@ -336,5 +356,5 @@ namespace Tests{
 int main()
 {
     Infoarena::runMergeHeap();
-    ///Infoarena::runHeapuri();
+    Infoarena::runHeapuri();
 }
