@@ -248,7 +248,7 @@ public:
         delete_min();
     }
 
-    void afis(std::ostream& out){
+    void afis(std::ostream& out = std::cout){
         out << "Rank-pairing heap looks like this:";
         if(empty()){
             out << "Empty heap!\n";
@@ -265,74 +265,76 @@ public:
         while(node != firstNode);
     }
 };
-void runInfoarenaMergeHeap(){
-    std::ifstream fin("mergeheap.in");
-    std::ofstream fout("mergeheap.out");
-    int n,q;
-    fin >> n >> q;
-    RankPairingHeap<int> heaps[n + 1];
-    while(q--){
-        int type;
-        fin >> type;
-        if(type == 1){
-            int val, nr;
-            fin >> nr >> val;
-            heaps[nr].push(-val);
-        }
-        else if(type == 2){
-            int nr;
-            fin >> nr;
-            fout << -heaps[nr].find_Min() << '\n';
-            heaps[nr].delete_min();
-        }
-        else if(type == 3){
-            int nr1, nr2;
-            fin >> nr1 >> nr2;
-            heaps[nr1].meld(heaps[nr2]);
-        }
+namespace Infoarena{
+    void runMergeHeap(){
+        std::ifstream fin("mergeheap.in");
+        std::ofstream fout("mergeheap.out");
+        int n,q;
+        fin >> n >> q;
+        RankPairingHeap<int> heaps[n + 1];
+        while(q--){
+            int type;
+            fin >> type;
+            if(type == 1){
+                int val, nr;
+                fin >> nr >> val;
+                heaps[nr].push(-val);
+            }
+            else if(type == 2){
+                int nr;
+                fin >> nr;
+                fout << -heaps[nr].find_Min() << '\n';
 
+                heaps[nr].delete_min();
+            }
+            else if(type == 3){
+                int nr1, nr2;
+                fin >> nr1 >> nr2;
+                heaps[nr1].meld(heaps[nr2]);
+            }
+
+        }
+        /// gets 100 points. Surprisingly didn't have implementation problems.
     }
-    /// gets 100 points. Surprisingly didn't have implementation problems.
+    void runHeapuri(){
+        int n;
+        std::ifstream fin("heapuri.in");
+        std::ofstream fout("heapuri.out");
+        fin >> n;
+        RankPairingHeap<int> rpHeap;
+        typedef RankPairingHeap<int>::Node* rpNode;
+        std::vector< rpNode> ptrs;
+        while(n--){
+            int type;
+            fin >> type;
+            if(type == 1){
+                int x;
+                fin >> x;
+                rpNode newPtr = rpHeap.push(x);
+                ptrs.push_back(newPtr);
+            }
+            else if(type == 2){
+                ///rpHeap.afis(std::cout);
+                int nr;
+                fin >> nr;
+                rpHeap.deleteNode(ptrs[nr - 1]);
+            }
+            else if(type == 3){
+                fout << rpHeap.find_Min() << '\n';
+            }
+            /// 100p after a 2 hours of debugging
+        }
+    }
 }
-void runInfoarenaHeapuri(){
-    int n;
-    std::ifstream fin("heapuri.in");
-    std::ofstream fout("heapuri.out");
-    fin >> n;
-    RankPairingHeap<int> rpHeap;
-    typedef RankPairingHeap<int>::Node* rpNode;
-    std::vector< rpNode> ptrs;
-    while(n--){
-        int type;
-        fin >> type;
-        if(type == 1){
-            int x;
-            fin >> x;
-            rpNode newPtr = rpHeap.push(x);
-            ptrs.push_back(newPtr);
-        }
-        else if(type == 2){
-            ///rpHeap.afis(std::cout);
-            int nr;
-            fin >> nr;
-            rpHeap.deleteNode(ptrs[nr - 1]);
-        }
-        else if(type == 3){
-            fout << rpHeap.find_Min() << '\n';
-        }
-        /// 100p after a 2 hours of debugging
+namespace Tests{
+    void tiny_test(){
+        RankPairingHeap<int> test;
+        test.push(3);
+        test.afis();
     }
 }
 int main()
-{/*
-    RankPairingHeap<int> myHeap;
-
-    static const int arr[] = {1, 10, 2, 3, 4};
-    std::vector<int> vec (arr, arr + sizeof(arr) / sizeof(arr[0]) );
-
-
-    myHeap.push(vec);
-    myHeap.delete_min();
-    myHeap.afis(std::cout);*/
-    runInfoarenaMergeHeap();
+{
+    Infoarena::runMergeHeap();
+    ///Infoarena::runHeapuri();
 }
