@@ -3,6 +3,11 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
+#include <map>
+#include <set>
+#include <chrono>
+#include <random>
+#include <algorithm>
 
 template <typename T = int>
 class RankPairingHeap{
@@ -55,6 +60,9 @@ public:
            x->rank++;
 
             return x;
+        }
+        bool operator<(Node &other){
+            return this < other;
         }
     };
 private:
@@ -388,14 +396,94 @@ namespace Infoarena{
     }
 }
 namespace Tests{
+    int inline randInt(int a, int b) {
+        return rand() % (b-a+1) + a;
+    }
     void tiny_test(){
         RankPairingHeap<int> test;
         test.push(3);
         test.afis();
     }
+    void runTest(){/*
+        std::ifstream fin("test.in");
+        std::ofstream fout("test.out");
+
+        int q;
+        while(fin>>q){
+
+            if(q == 1){
+                int val;
+                fin >> val;
+
+            }
+
+        }*/
+    }
+    void generateTest(){
+        srand(time(NULL));
+        std::ofstream fout("test.in");
+
+        std::vector<int> ids;
+        std::map<int,int> idCount;
+        std::set<RankPairingHeap<int>::Node*> nodes;
+        int const testSize = 1e2;
+
+        int inserted = 0;
+
+        for(int i = 0; i < testSize; i++){
+            int rnd = randInt(-2,5);
+            if(ids.empty())
+                rnd = 1;
+            int id ;
+            if(rnd == 1)
+                id = randInt(1,std::numeric_limits<int>::max());
+            else
+                id = ids[randInt(0,ids.size()-1)];
+            if(rnd <= 0)
+                rnd = 1;
+
+
+            if(rnd == 1){
+                if(idCount.find(id) == idCount.end()){
+                    ids.push_back(id);
+                    idCount[id] = 0;
+                }
+                int val = randInt(1,std::numeric_limits<int>::max());
+                fout << '\n' << rnd << ' ' << val;
+                idCount[id]++;
+                inserted++;
+                continue;
+            }
+            if(idCount[id] == 0){ /// operation on empty heap
+                i--;
+                continue;
+            }
+            fout << '\n' << rnd << ' ';
+
+            if(rnd == 2){ /// getMin
+                fout << id;
+            }
+            if(rnd == 3){ /// extractMin
+                fout << id;
+                idCount[id]--;
+                inserted--;
+            }
+            if(rnd == 4){ /// meld (combine heaps)
+                int id2 = ids[randInt(0,ids.size()-1)];
+                fout << id << ' ' << id2;
+            }
+            if(rnd == 5){ /// decrease nth inserted node (excluding deleted)
+                fout << randInt(1,inserted) << ' ';
+                fout << randInt(1,inserted);
+            }
+        }
+    }
 }
 int main()
 {
-    ///Infoarena::runMergeHeap();
+
+    Tests::generateTest();
+
+    Infoarena::runMergeHeap();
     Infoarena::runHeapuri();
 }
