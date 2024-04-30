@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 
-template <typename T>
+template <typename T = int>
 class RankPairingHeap{
 public:
     struct Node{
@@ -29,60 +29,40 @@ public:
             if(rChild != NULL)
                 rChild->getChildren(result);
         }
+        void linkLists(Node* other){
+            Node* nextNode = this->next;
+            this->next = other->next;
+            other->next = nextNode;
+        }
+        static Node* combineHT(Node* x, Node* y){
+        /// combine 2 half-trees. returns parent.
+
+            if(x == NULL)
+                return y;
+            if(y == NULL)
+                return x;
+            if(y->val < x->val)
+                return combineHT(y,x);
+
+            y->rChild = x->lChild;
+            if(y->rChild != NULL)
+                y->rChild->parent = y;
+
+            x->lChild = y;
+            y->parent = x;
+            y->next = NULL;
+
+           x->rank++;
+
+            return x;
+        }
     };
 private:
     Node *firstNode;
     int unsigned n;
-public:
-    int unsigned size(){return n;}
-    RankPairingHeap(){
-        nullify();
-    }
-    void nullify(){
-        n = 0;
-        firstNode = NULL;
-    }
-    bool empty(){return firstNode == NULL || n == 0;}
-    Node* make_heap(T val){
-        if( firstNode != NULL)
-            return NULL;
-        firstNode = new Node(val);
-        n = 1;
-        return firstNode;
-    }
-    RankPairingHeap& move(RankPairingHeap& other){
-        firstNode = other.firstNode;
-        n = other.size();
-        other.nullify();
-        return *this;
-    }
-    RankPairingHeap& meld(RankPairingHeap& other){
-        if(empty()){
-            move(other);
-            return *this;
-        }
-        if(other.empty())
-            return *this;
 
-        /// catenation of 2 circular simply linked list
-        Node * h1Next = firstNode->next;
-        firstNode->next = other.firstNode->next;
-        other.firstNode->next = h1Next;
-
-        if(firstNode->val > other.firstNode->val)
-            firstNode = other.firstNode;
-
-        n += other.size();
-        other.nullify();
-        return *this;
-    }
-    Node* push(T val){
-        RankPairingHeap heap2;
-        Node* result = heap2.make_heap(val);
-        meld(heap2);
-        return result;
-    }
     void push(Node *node){
+        ///links half tree (keeps children)
         node->parent = NULL;
         if(empty()){
             firstNode  = node;
@@ -97,6 +77,104 @@ public:
     void push(std::vector<Node*> v){
         for(int unsigned i = 0; i < v.size(); i ++)
             push(v[i]);
+    }
+    class Buckets{
+        Node** buckets;
+        Node* firstNode;
+        int maxRank;
+    public:
+        Buckets(Node* const firstNodePtr, int n){
+            this->firstNode = firstNodePtr;
+            maxRank = log2(n) + 3; /// +3 just in case
+            buckets = new Node*[maxRank];
+
+            for(int i = 0; i < maxRank; i++)
+                buckets[i] = NULL;
+        }
+        std::vector<Node*> run(){
+            std::vector<Node*> result;
+
+            if(firstNode->next == firstNode)
+                return result;
+
+            Node* currentNode = firstNode->next;
+            buckets[currentNode->rank] = currentNode;
+            currentNode = currentNode->next;
+
+            while(currentNode != firstNode){
+                Node* nextNode = currentNode->next; /// save it since can become NULL
+
+                /// combine half trees of same rank.
+                if(buckets[currentNode->rank] != NULL){
+                    int rank = currentNode->rank;
+                    Node* parent = Node::combineHT(currentNode,buckets[rank]);
+
+                    buckets[rank] = NULL;
+
+                    result.push_back(parent);/// since onePass we don't combine it again.
+                }
+                else
+                    buckets[currentNode->rank] = currentNode;
+
+                currentNode = nextNode;
+            }
+
+
+            for(int i = 0; i < maxRank; i++)
+                if(buckets[i] != NULL)
+                    result.push_back(buckets[i]);
+
+            return result;
+        }
+        ~Buckets(){
+            delete[] buckets;
+            delete firstNode;
+        }
+    };
+
+public:
+    int unsigned size(){return n;}
+    RankPairingHeap(){
+        nullify();
+    }
+    void nullify(){
+        n = 0;
+        firstNode = NULL;
+    }
+    bool inline empty(){return firstNode == NULL || n == 0;}
+    Node* make_heap(T val){
+        if( firstNode != NULL)
+            return NULL;
+        firstNode = new Node(val);
+        n = 1;
+        return firstNode;
+    }
+    void movePtr(RankPairingHeap& other){
+        firstNode = other.firstNode;
+        n = other.size();
+        other.nullify();
+    }
+    void meld(RankPairingHeap& other){
+        if(empty()){
+            movePtr(other);
+            return;
+        }
+        if(other.empty())
+            return;
+
+        firstNode->linkLists(other.firstNode);
+
+        if(firstNode->val > other.firstNode->val)
+            firstNode = other.firstNode;
+
+        n += other.size();
+        other.nullify();
+    }
+    Node* push(T val){
+        RankPairingHeap heap2;
+        Node* result = heap2.make_heap(val);
+        meld(heap2);
+        return result;
     }
     void push(std::vector<T> v){
         for(int unsigned i = 0; i < v.size(); i ++)
@@ -126,52 +204,9 @@ public:
         /// adds right spine of half trees to the list of roots.
         addRightSpine(firstNode->lChild);
 
+        Buckets onePass(firstNode,size());
+        std::vector<Node*> result = onePass.run();
         /// link half trees with buckets for same rank.
-        int maxRank = log2(n) + 3;
-        Node** Buckets = new Node*[maxRank];
-
-        for(int i = 0; i < maxRank; i++)
-            Buckets[i] = NULL;
-
-        std::vector<Node*> result; /// will contain list of half trees after one-pass joins.
-
-        Node* nextNode = firstNode->next;
-        Buckets[nextNode->rank] = nextNode;
-
-        nextNode = nextNode->next;
-        while(nextNode != firstNode){
-            Node* currentNode = nextNode;
-            nextNode = nextNode->next;
-            /// combine half trees of same rank.
-            if(Buckets[currentNode->rank] != NULL){
-                Node * sameRankNode = Buckets[currentNode->rank];
-                Buckets[currentNode->rank] = NULL;
-
-                if(sameRankNode->val < currentNode->val)
-                    std::swap(sameRankNode,currentNode);
-                sameRankNode->rChild = currentNode->lChild;
-                if(currentNode->lChild != NULL)
-                    currentNode->lChild->parent = sameRankNode;
-                sameRankNode->parent = currentNode;
-                sameRankNode->next = NULL;
-                currentNode->lChild = sameRankNode;
-
-                currentNode->rank++;
-
-                result.push_back(currentNode);
-            }
-            else{
-                Buckets[currentNode->rank] = currentNode;
-            }
-        }
-
-
-        for(int i = 0; i < maxRank; i++)
-            if(Buckets[i] != NULL)
-                result.push_back(Buckets[i]);
-
-        delete[] Buckets;
-        delete firstNode;
 
         firstNode = NULL;
         n--;
@@ -196,22 +231,25 @@ public:
         node->val = newVal;
         Node* parent = node->parent;
 
-        if(parent == NULL){
+        if(parent == NULL){ /// case of already root
             if(node->val < firstNode->val)
                 firstNode = node;
             return;
         }
 
-        push(node);
+        push(node); /// add to root list (with children!)
+
         if(parent->lChild == node)
             parent->lChild = node->rChild;
         else if(parent->rChild == node)
             parent->rChild = node->rChild;
-        else throw std::runtime_error("parent wrongly formed!");
+        else
+            throw std::runtime_error("parent wrongly formed!");
 
         if(node->rChild != NULL)
-            node->rChild->parent = parent;
+            node->rChild->parent = parent; /// link rightChild so node becomes half tree
         node->rChild = NULL;
+
         node->parent = NULL;
 
         recalculateRank(parent);
@@ -222,6 +260,8 @@ public:
         return node->rank;
     }
     void recalculateRank(Node* &node){
+        /// type 1 rank calculation. Complexity is "magic"
+
         if(node->parent == NULL){
             node->rank = getRank(node->lChild) + 1;
             return;
@@ -284,6 +324,7 @@ public:
         while(node != firstNode);
         nullify();
     }
+
 };
 namespace Infoarena{
     void runMergeHeap(){
@@ -355,6 +396,6 @@ namespace Tests{
 }
 int main()
 {
-    Infoarena::runMergeHeap();
+    ///Infoarena::runMergeHeap();
     Infoarena::runHeapuri();
 }
