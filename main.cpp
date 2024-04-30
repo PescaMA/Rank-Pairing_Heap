@@ -167,7 +167,7 @@ public:
             movePtr(other);
             return;
         }
-        if(other.empty())
+        if(other.empty() || &other == this)
             return;
 
         firstNode->linkLists(other.firstNode);
@@ -205,10 +205,11 @@ public:
         }
         return false;
     }
-    void delete_min(){
+    Node* delete_min(){
+        Node* oldMin = firstNode;
         /// handles edge cases.
         if(edgeCase_delete_min())
-            return;
+            return oldMin;
         /// adds right spine of half trees to the list of roots.
         addRightSpine(firstNode->lChild);
 
@@ -220,6 +221,8 @@ public:
         n--;
 
         push(result);
+
+        return oldMin;
     }
     void addRightSpine(Node* &node){
         if(node == NULL) return;
@@ -334,7 +337,22 @@ public:
     }
 
 };
+
+
+
+
+
 namespace Infoarena{
+    int randInt(int a, int b) {
+        static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+        static std::mt19937 gen(seed);
+        std::uniform_int_distribution<int> dist(a, b);
+        return dist(gen);
+    }
+    long long getTimeMCS(){
+        return std::chrono::system_clock::now().time_since_epoch() /
+        std::chrono::microseconds(1);
+    }
     void runMergeHeap(){
         std::ifstream fin("mergeheap.in");
         std::ofstream fout("mergeheap.out");
@@ -365,6 +383,69 @@ namespace Infoarena{
         }
         /// gets 100 points. Surprisingly didn't have implementation problems.
     }
+    void generateMerge(){
+
+        std::ofstream fout("mergeheap.in");
+
+        /*** Edit these for different test size ***/
+        std::vector<int> chances = {20,50,10,20};
+        int n = 1e4;
+        int q = 1e7;
+
+        for(unsigned i = 1; i < chances.size(); ++i)
+            chances[i]+=chances[i-1];
+        int lastChance = chances[chances.size() - 1];
+
+        fout << n << ' ' <<  q;
+
+        int mxId = 0;
+        std::map<int,int> elCount;
+
+        for(int i=0; i< q;i ++){
+            int op = randInt(0,lastChance);
+            if(mxId == 0)
+                op = 0; /// first operation has to be insertion.
+            if(mxId >= n-2){
+                mxId = n-2;
+                op = randInt(chances[0] + 1,lastChance);
+            }
+            if(op <= chances[0]){ /// insert in new heap
+
+                mxId++;
+                int val = randInt(0,std::numeric_limits<int>::max());
+                fout << "\n1 "<< mxId << ' ' << val;
+                elCount[mxId] = 0;
+                continue;
+            }
+            if(op <= chances[1]){ /// insert element in old heap
+                int val = randInt(0,std::numeric_limits<int>::max());
+                int id = randInt(1,mxId);
+                fout << "\n1 "<< id << ' ' << val;
+                elCount[id]++;
+                continue;
+            }
+            if(op <= chances[2]){ /// extract_min on this heap
+                int id = randInt(1,mxId);
+                if(elCount[id]  == 0){
+                    i--;
+                    continue; /// retry
+                }
+                fout << "\n2 "<< id;
+                elCount[id]--;
+                continue;
+            }
+            if(op <= chances[3]){ /// meld heap2 into heap1
+                int id1 = randInt(1,mxId);
+                int id2 = randInt(1,mxId);
+                fout << "\n3 "<< id1 << ' ' << id2;
+                if(id1 == id2)
+                    continue;
+                elCount[id1] += elCount[id2];
+                elCount[id2] = 0;
+                continue;
+            }
+        }
+    }
     void runHeapuri(){
         int n;
         std::ifstream fin("heapuri.in");
@@ -394,96 +475,17 @@ namespace Infoarena{
             /// 100p after a 2 hours of debugging
         }
     }
+
 }
-namespace Tests{
-    int inline randInt(int a, int b) {
-        return rand() % (b-a+1) + a;
-    }
-    void tiny_test(){
-        RankPairingHeap<int> test;
-        test.push(3);
-        test.afis();
-    }
-    void runTest(){/*
-        std::ifstream fin("test.in");
-        std::ofstream fout("test.out");
-
-        int q;
-        while(fin>>q){
-
-            if(q == 1){
-                int val;
-                fin >> val;
-
-            }
-
-        }*/
-    }
-    void generateTest(){
-        srand(time(NULL));
-        std::ofstream fout("test.in");
-
-        std::vector<int> ids;
-        std::map<int,int> idCount;
-        std::set<RankPairingHeap<int>::Node*> nodes;
-        int const testSize = 1e2;
-
-        int inserted = 0;
-
-        for(int i = 0; i < testSize; i++){
-            int rnd = randInt(-2,5);
-            if(ids.empty())
-                rnd = 1;
-            int id ;
-            if(rnd == 1)
-                id = randInt(1,std::numeric_limits<int>::max());
-            else
-                id = ids[randInt(0,ids.size()-1)];
-            if(rnd <= 0)
-                rnd = 1;
 
 
-            if(rnd == 1){
-                if(idCount.find(id) == idCount.end()){
-                    ids.push_back(id);
-                    idCount[id] = 0;
-                }
-                int val = randInt(1,std::numeric_limits<int>::max());
-                fout << '\n' << rnd << ' ' << val;
-                idCount[id]++;
-                inserted++;
-                continue;
-            }
-            if(idCount[id] == 0){ /// operation on empty heap
-                i--;
-                continue;
-            }
-            fout << '\n' << rnd << ' ';
-
-            if(rnd == 2){ /// getMin
-                fout << id;
-            }
-            if(rnd == 3){ /// extractMin
-                fout << id;
-                idCount[id]--;
-                inserted--;
-            }
-            if(rnd == 4){ /// meld (combine heaps)
-                int id2 = ids[randInt(0,ids.size()-1)];
-                fout << id << ' ' << id2;
-            }
-            if(rnd == 5){ /// decrease nth inserted node (excluding deleted)
-                fout << randInt(1,inserted) << ' ';
-                fout << randInt(1,inserted);
-            }
-        }
-    }
-}
 int main()
 {
-
-    Tests::generateTest();
-
+    Infoarena::generateMerge();
+    long long st = Infoarena::getTimeMCS();
     Infoarena::runMergeHeap();
+    long long result = Infoarena::getTimeMCS() - st;/// ~20 sec for 1e7 queries
+    std::cout << result << ' ' << result/1000/1000 << "seconds";
+
     Infoarena::runHeapuri();
 }

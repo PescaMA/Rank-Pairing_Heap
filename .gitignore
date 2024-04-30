@@ -45,5 +45,4 @@ bin/
 obj/
 
 #specific for this project:
-.idea/
-tests/tests.in
+*.in
